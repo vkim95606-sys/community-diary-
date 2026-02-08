@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Community Diary</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #e8f5e9;
+      padding: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      border-radius: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      background: #2e7d32;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+    .entry {
+      background: white;
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    .date {
+      font-size: 12px;
+      color: gray;
+    }
+    .actions {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>🌿 Community Diary</h2>
+
+<textarea id="entryText" placeholder="Share your thoughts..."></textarea>
+<button onclick="saveEntry()">Post</button>
+
+<div id="entries"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    query,
+    orderBy,
+    doc,
+    updateDoc,
+    deleteDoc
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCH0i8QFwxF5VqJ1tLQmDrJHorbmvDbJI8",
+    authDomain: "maybe-for-u-community-diary.firebaseapp.com",
+    projectId: "maybe-for-u-community-diary"
+  };
+
+  const ADMIN_PASSWORD = "CHANGE_THIS_PASSWORD";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 🛡️ Simple spam filter
+  function isSpam(text) {
+    const banned = ["http", "www", "spam", "badword"];
+    return banned.some(word => text.toLowerCase().includes(word));
+  }
+
+  window.saveEntry = async function () {
+    const text = document.getElementById("entryText").value.trim();
+    if (!text) return;
+
+    if (isSpam(text)) {
+      alert("Your post looks like spam.");
+      return;
+    }
+
+    await addDoc(collection(db, "entries"), {
+      text,
+      timestamp: Date.now(),
+      date: new Date().toLocaleString(),
+      likes: 0
+    });
+
+    document.getElementById("entryText").value = "";
+    loadEntries();
+  };
+
+  async function likeEntry(id, currentLikes) {
+    await updateDoc(doc(db, "entries", id), {
+      likes: currentLikes + 1
+    });
+    loadEntries();
+  }
+
+  async function deleteEntry(id) {
+    const pass = prompt("Admin password:");
+    if (pass !== maybeforustem3) {
+      alert("Wrong password");
+      return;
+    }
+    await deleteDoc(doc(db, "entries", id));
+    loadEntries();
+  }
+
+  window.loadEntries = async function () {
+    const container = document.getElementById("entries");
+    container.innerHTML = "";
+
+    const q = query(collection(db, "entries"), orderBy("timestamp", "desc"));
+    const snapshot = await getDocs(q);
+
+    snapshot.forEach(d => {
+      const data = d.data();
+
+      const div = document.createElement("div");
+      div.className = "entry";
+
+      const date = document.createElement("div");
+      date.className = "date";
+      date.textContent = data.date;
+
+      const p = document.createElement("p");
+      p.textContent = data.text;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const likeBtn = document.createElement("button");
+      likeBtn.textContent = `❤️ ${data.likes}`;
+      likeBtn.onclick = () => likeEntry(d.id, data.likes);
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "🗑️ Delete";
+      delBtn.style.marginLeft = "8px";
+      delBtn.onclick = () => deleteEntry(d.id);
+
+      actions.appendChild(likeBtn);
+      actions.appendChild(delBtn);
+
+      div.appendChild(date);
+      div.appendChild(p);
+      div.appendChild(actions);
+
+      container.appendChild(div);
+    });
+  };
+
+  loadEntries();
+</script>
+
+</body>
+</html>
